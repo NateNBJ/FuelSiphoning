@@ -1,16 +1,14 @@
-package sun.fs.campaign.abilities;
+package fuel_siphoning.campaign.abilities;
 
 import java.awt.Color;
 import java.util.EnumSet;
 
+import com.fs.starfarer.api.campaign.*;
+import com.fs.starfarer.api.impl.campaign.terrain.StarCoronaTerrainPlugin;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.util.vector.Vector2f;
 
 import com.fs.starfarer.api.Global;
-import com.fs.starfarer.api.campaign.CampaignEngineLayers;
-import com.fs.starfarer.api.campaign.CampaignFleetAPI;
-import com.fs.starfarer.api.campaign.CampaignTerrainAPI;
-import com.fs.starfarer.api.campaign.PlanetAPI;
 import com.fs.starfarer.api.campaign.econ.CommoditySpecAPI;
 import com.fs.starfarer.api.combat.ViewportAPI;
 import com.fs.starfarer.api.graphics.SpriteAPI;
@@ -21,13 +19,14 @@ import com.fs.starfarer.api.ui.TooltipMakerAPI;
 import com.fs.starfarer.api.util.Misc;
 
 public class SiphonFuelAbility extends BaseToggleAbility {
+	static void log(String message) { if(true) Global.getLogger(SiphonFuelAbility.class).info(message); }
 
     public static final String SUPPLIES_ID = Commodities.SUPPLIES;
     public static final String FUEL_ID = Commodities.FUEL;
     public static final float DETECTABILITY_PERCENT = 100f;
 
     public float getFuelPerSupply() {
-        return 0.75f
+        return 1.00f
                 * Global.getSector().getEconomy().getCommoditySpec(SUPPLIES_ID).getBasePrice()
                 / Global.getSector().getEconomy().getCommoditySpec(FUEL_ID).getBasePrice();
     }
@@ -62,12 +61,12 @@ public class SiphonFuelAbility extends BaseToggleAbility {
             title.setHighlightColor(gray);
 
             float pad = 10f;
-            tooltip.addPara("Synthesize fuel using chemical compounds collected from the atmosphere of a gas giant.", pad);
+            tooltip.addPara("Synthesize fuel using plasma collected from the corona of a red giant star.", pad);
 
-            if (getGasGiant() == null) {
-                    tooltip.addPara("Your fleet is currently not at a gas giant.", Misc.getNegativeHighlightColor(), pad);
+            if (!hasFuelSource()) {
+                    tooltip.addPara("Your fleet is currently not within the corona of a red giant or red supergiant star.", Misc.getNegativeHighlightColor(), pad);
             } else {
-                    tooltip.addPara("Your fleet is at a gas giant and can begin siphoning fuel.", Misc.getPositiveHighlightColor(), pad);
+                    tooltip.addPara("Your fleet is within the corona of a red giant star and can begin siphoning fuel.", Misc.getPositiveHighlightColor(), pad);
             }
 
             tooltip.addPara("Increases the range at which the fleet can be detected by %s and consumes one unit of supplies for every %s units of fuel.",
@@ -103,10 +102,10 @@ public class SiphonFuelAbility extends BaseToggleAbility {
         
         if(!isActive()) return;
         
-        float cost = days * fleet.getCargo().getMaxFuel() * 0.05f * level;
+        float cost = days * fleet.getCargo().getMaxFuel() * level / getFuelPerSupply();
         float fuel = fleet.getCargo().getCommodityQuantity(FUEL_ID);
         
-        if (getGasGiant() == null) {
+        if (!hasFuelSource()) {
             deactivate();
         } else if(fleet.getCargo().getCommodityQuantity(SUPPLIES_ID) <= 0) {
             CommoditySpecAPI spec = getCommodity();
@@ -130,19 +129,34 @@ public class SiphonFuelAbility extends BaseToggleAbility {
 
     @Override
     public boolean isUsable() {
-        return isActive() || getGasGiant() != null;
+        return isActive() || hasFuelSource();
     }
 
-    protected PlanetAPI getGasGiant() {
+    protected boolean hasFuelSource() {
         CampaignFleetAPI fleet = getFleet();
-        if (fleet == null) return null;
+        if (fleet == null) return false;
 
-        for (PlanetAPI planet : fleet.getContainingLocation().getPlanets()) {
-            if(planet.isGasGiant() && Misc.getDistance(planet, fleet) < (fleet.getRadius() + planet.getRadius() + 100)) {
-                return planet;
-            }
-        }
-        return null;
+        float radius = 0;
+
+        for(CampaignTerrainAPI terrain : fleet.getContainingLocation().getTerrainCopy()) {
+        	if(terrain.getPlugin() instanceof StarCoronaTerrainPlugin) {
+				StarCoronaTerrainPlugin corona = (StarCoronaTerrainPlugin)terrain.getPlugin();
+
+				if(corona.containsEntity(fleet)) {
+					radius = Math.max(radius, corona.getAuroraOuterRadius());
+				}
+			}
+		}
+
+        if(radius != 0) {
+			for (PlanetAPI planet : fleet.getContainingLocation().getPlanets()) {
+				if((planet.getTypeId().contains("star_red_giant") || planet.getTypeId().contains("star_red_supergiant"))
+						&& Misc.getDistance(planet, fleet) < (fleet.getRadius() + planet.getRadius() + radius)) {
+					return true;
+				}
+			}
+		}
+        return false;
     }
 
     @Override
