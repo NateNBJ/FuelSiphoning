@@ -63,6 +63,8 @@ public class ModPlugin extends BaseModPlugin {
             updateBaseValueOfFuel(Global.getSector().getPlayerFleet().getCargo());
 
             for (MarketAPI market : Global.getSector().getEconomy().getMarketsCopy()) {
+                if(market == null || market.getSubmarket(Submarkets.SUBMARKET_STORAGE) == null) continue;
+
                 updateBaseValueOfFuel(market.getSubmarket(Submarkets.SUBMARKET_STORAGE).getCargo());
             }
         } catch (Exception e) {
