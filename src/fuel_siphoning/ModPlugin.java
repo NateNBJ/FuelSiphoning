@@ -4,11 +4,7 @@ import com.fs.starfarer.api.BaseModPlugin;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.CargoAPI;
 import com.fs.starfarer.api.campaign.CargoStackAPI;
-import com.fs.starfarer.api.campaign.econ.MarketAPI;
-import com.fs.starfarer.api.impl.campaign.ids.Commodities;
-import com.fs.starfarer.api.impl.campaign.ids.Submarkets;
 import com.fs.starfarer.campaign.ui.trade.CargoItemStack;
-import com.fs.starfarer.loading.Oo0O;
 import org.json.JSONObject;
 
 public class ModPlugin extends BaseModPlugin {
@@ -42,13 +38,13 @@ public class ModPlugin extends BaseModPlugin {
                 Global.getSector().getCharacterData().addAbility(ABILITY_ID);
             }
 
-            Oo0O fuelSpec = ((Oo0O)Global.getSector().getEconomy().getCommoditySpec(Commodities.FUEL));
+//            Oo0O fuelSpec = ((Oo0O)Global.getSector().getEconomy().getCommoditySpec(Commodities.FUEL));
 
             if(!settingsAlreadyRead) {
                 JSONObject cfg = Global.getSettings().getMergedJSONForMod(SETTINGS_PATH, ID);
 
                 FUEL_CONSUMPTION_MULT = (float) cfg.getDouble("fuelConsumptionMult");
-                FUEL_VALUE = (float) cfg.getDouble("fuelValue");
+                //FUEL_VALUE = (float) cfg.getDouble("fuelValue");
                 SENSOR_PROFILE_INCREASE_PERCENT = (float) cfg.getDouble("sensorProfileIncreasePercent");
                 HIGH_DENSITY_CONVERSION_RATIO = (float) cfg.getDouble("highDensityConversionRatio");
                 LOW_DENSITY_CONVERSION_RATIO = (float) cfg.getDouble("lowDensityConversionRatio");
@@ -58,15 +54,15 @@ public class ModPlugin extends BaseModPlugin {
 
             Global.getSector().getPlayerFleet().getStats().getFuelUseHyperMult().modifyMult("sun_fs_fuel_mult", FUEL_CONSUMPTION_MULT);
 
-            fuelSpec.setBasePrice(FUEL_VALUE);
-
-            updateBaseValueOfFuel(Global.getSector().getPlayerFleet().getCargo());
-
-            for (MarketAPI market : Global.getSector().getEconomy().getMarketsCopy()) {
-                if(market == null || market.getSubmarket(Submarkets.SUBMARKET_STORAGE) == null) continue;
-
-                updateBaseValueOfFuel(market.getSubmarket(Submarkets.SUBMARKET_STORAGE).getCargo());
-            }
+//            fuelSpec.setBasePrice(FUEL_VALUE);
+//
+//            updateBaseValueOfFuel(Global.getSector().getPlayerFleet().getCargo());
+//
+//            for (MarketAPI market : Global.getSector().getEconomy().getMarketsCopy()) {
+//                if(market == null || market.getSubmarket(Submarkets.SUBMARKET_STORAGE) == null) continue;
+//
+//                updateBaseValueOfFuel(market.getSubmarket(Submarkets.SUBMARKET_STORAGE).getCargo());
+//            }
         } catch (Exception e) {
             String stackTrace = "";
 
