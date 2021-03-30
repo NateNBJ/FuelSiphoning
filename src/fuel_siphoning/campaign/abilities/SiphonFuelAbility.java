@@ -18,8 +18,8 @@ import com.fs.starfarer.api.util.Misc;
 public class SiphonFuelAbility extends BaseToggleAbility {
 	public static final Color CONTRAIL_COLOR = new Color(255, 97, 27, 80);
 
-    public float getFuelPerSupply() {
-        return 1.00f
+    public float getFuelPerSupply(boolean isHighDensity) {
+        return (isHighDensity ? ModPlugin.HIGH_DENSITY_CONVERSION_RATIO : ModPlugin.LOW_DENSITY_CONVERSION_RATIO)
                 * Global.getSector().getEconomy().getCommoditySpec(Commodities.SUPPLIES).getBasePrice()
                 / Global.getSector().getEconomy().getCommoditySpec(Commodities.FUEL).getBasePrice();
     }
@@ -62,8 +62,7 @@ public class SiphonFuelAbility extends BaseToggleAbility {
             boolean inNebulaSystem = getFleet().getContainingLocation().isNebula();
             Color clr = inNebulaSystem ? Misc.getPositiveHighlightColor() : Misc.getHighlightColor();
             String density = (inNebulaSystem ? "high" : "low") + " density nebula";
-            String fuelPerSupply = Misc.getRoundedValueMaxOneAfterDecimal(getFuelPerSupply()
-                    * (inNebulaSystem ? ModPlugin.HIGH_DENSITY_CONVERSION_RATIO : ModPlugin.LOW_DENSITY_CONVERSION_RATIO));
+            String fuelPerSupply = Misc.getRoundedValueMaxOneAfterDecimal(getFuelPerSupply(inNebulaSystem));
             String canOrIs = isActive() ? "is siphoning" : "can siphon";
 
             tooltip.addPara("Your fleet is within a %s and " + canOrIs + " %s fuel per unit of supplies.",
@@ -89,8 +88,10 @@ public class SiphonFuelAbility extends BaseToggleAbility {
 
         fleet.getStats().getDetectedRangeMod().modifyPercent(getModId(), ModPlugin.SENSOR_PROFILE_INCREASE_PERCENT, "Siphoning fuel");
 
+        boolean inNebulaSystem = getFleet().getContainingLocation().isNebula();
         float days = Global.getSector().getClock().convertToDays(amount);
-        float cost = days * fleet.getCargo().getMaxFuel() * (level / getFuelPerSupply()) * (fleet.getCurrBurnLevel() / 10);
+        float cost = days * fleet.getCargo().getMaxFuel() * (level / getFuelPerSupply(inNebulaSystem))
+                * (fleet.getCurrBurnLevel() / 10);
         float fuel = fleet.getCargo().getCommodityQuantity(Commodities.FUEL);
 
         if (!hasFuelSource()) {
@@ -99,13 +100,13 @@ public class SiphonFuelAbility extends BaseToggleAbility {
             CommoditySpecAPI spec = getCommodity();
             fleet.addFloatingText("Out of " + spec.getName().toLowerCase(), Misc.setAlpha(entity.getIndicatorColor(), 255), 0.5f);
             deactivate();
-        } else if(fuel + cost * getFuelPerSupply() >= fleet.getCargo().getMaxFuel()) {
+        } else if(fuel + cost * getFuelPerSupply(inNebulaSystem) >= fleet.getCargo().getMaxFuel()) {
             fleet.getCargo().addFuel(fleet.getCargo().getMaxFuel() - fuel);
             fleet.addFloatingText("Full of fuel", Misc.setAlpha(entity.getIndicatorColor(), 255), 0.5f);
             deactivate();
         } else {
             fleet.getCargo().removeCommodity(Commodities.SUPPLIES, cost);
-            fleet.getCargo().addCommodity(Commodities.FUEL, cost * getFuelPerSupply());
+            fleet.getCargo().addCommodity(Commodities.FUEL, cost * getFuelPerSupply(inNebulaSystem));
 
 			for (FleetMemberViewAPI view : getFleet().getViews()) {
 				view.getContrailColor().shift("sun_fs_wake", CONTRAIL_COLOR, getActivationDays(), 2, 1f);
