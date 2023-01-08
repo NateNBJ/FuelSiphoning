@@ -1,23 +1,77 @@
 package fuel_siphoning;
 
 import com.fs.starfarer.api.BaseModPlugin;
+import com.fs.starfarer.api.GameState;
 import com.fs.starfarer.api.Global;
+import com.fs.starfarer.api.campaign.CampaignUIAPI;
 import com.fs.starfarer.api.campaign.econ.CommoditySpecAPI;
+import com.fs.starfarer.api.impl.campaign.ids.Commodities;
+import lunalib.lunaSettings.LunaSettings;
 import org.json.JSONObject;
+
+import java.awt.*;
+import java.util.MissingResourceException;
 
 public class ModPlugin extends BaseModPlugin {
     public static final String ID = "sun_fuel_siphoning";
     public static final String ABILITY_ID = "sun_fs_siphon_fuel";
     public static final String SETTINGS_PATH = "FUEL_SIPHONING_OPTIONS.ini";
 
-    public static float
-        FUEL_CONSUMPTION_MULT = 1,
-        FUEL_PRICE_MULT = 25,
-        SENSOR_PROFILE_INCREASE_PERCENT = 3,
-        HIGH_DENSITY_CONVERSION_RATIO = 1,
-        LOW_DENSITY_CONVERSION_RATIO = 0.75f;
+    static final String LUNALIB_ID = "lunalib";
+    static JSONObject settingsCfg = null;
+    static <T> T get(String id, Class<T> type) throws Exception {
+        if(Global.getSettings().getModManager().isModEnabled(LUNALIB_ID)) {
+            if(type == Integer.class) return type.cast(LunaSettings.getInt(ModPlugin.ID, id));
+            if(type == Float.class) return type.cast(LunaSettings.getFloat(ModPlugin.ID, id));
+            if(type == Boolean.class) return type.cast(LunaSettings.getBoolean(ModPlugin.ID, id));
+            if(type == Double.class) return type.cast(LunaSettings.getDouble(ModPlugin.ID, id));
+            if(type == String.class) return type.cast(LunaSettings.getString(ModPlugin.ID, id));
+        } else {
+            if(settingsCfg == null) settingsCfg = Global.getSettings().getMergedJSONForMod(SETTINGS_PATH, ID);
+            
+            if(type == Integer.class) return type.cast(settingsCfg.getInt(id));
+            if(type == Float.class) return type.cast((float) settingsCfg.getDouble(id));
+            if(type == Boolean.class) return type.cast(settingsCfg.getBoolean(id));
+            if(type == Double.class) return type.cast(settingsCfg.getDouble(id));
+            if(type == String.class) return type.cast(settingsCfg.getString(id));
+        }
 
-    private static boolean settingsAlreadyRead = false;
+        throw new MissingResourceException("No setting found with id: " + id, type.getName(), id);
+    }
+    static int getInt(String id) throws Exception { return get(id, Integer.class); }
+    static double getDouble(String id) throws Exception { return get(id, Double.class); }
+    static float getFloat(String id) throws Exception { return get(id, Float.class); }
+    static boolean getBoolean(String id) throws Exception { return get(id, Boolean.class); }
+    static String getString(String id) throws Exception { return get(id, String.class); }
+    static boolean readSettings() {
+        try {
+            FUEL_CONSUMPTION_MULT = Math.max(0, getFloat("fuelConsumptionMult"));
+            FUEL_PRICE_MULT = getFloat("fuelPriceMult");
+            SENSOR_PROFILE_INCREASE_PERCENT = getFloat("sensorProfileIncreasePercent");
+            HIGH_DENSITY_CONVERSION_RATIO = getFloat("highDensityConversionRatio");
+            LOW_DENSITY_CONVERSION_RATIO = getFloat("lowDensityConversionRatio");
+
+            Global.getSector().getPlayerFleet().getStats().getFuelUseHyperMult().modifyMult("sun_fs_fuel_mult", FUEL_CONSUMPTION_MULT);
+            CommoditySpecAPI fuelSpec = Global.getSector().getEconomy().getCommoditySpec("fuel");
+            fuelSpec.setBasePrice(Math.max(1, ORIGINAL_FUEL_PRICE * FUEL_PRICE_MULT));
+        } catch (Exception e) {
+            settingsCfg = null;
+
+            return reportCrash(e);
+        }
+
+        settingsCfg = null;
+
+        return true;
+    }
+
+    public static float
+            ORIGINAL_FUEL_PRICE = 25,
+            FUEL_CONSUMPTION_MULT = 1,
+            FUEL_PRICE_MULT = 1,
+            SENSOR_PROFILE_INCREASE_PERCENT = 300,
+            HIGH_DENSITY_CONVERSION_RATIO = 1,
+            LOW_DENSITY_CONVERSION_RATIO = 0.75f;
 
     @Override
     public void afterGameSave() {
@@ -30,42 +84,48 @@ public class ModPlugin extends BaseModPlugin {
     }
 
     @Override
+    public void onApplicationLoad() {
+        ORIGINAL_FUEL_PRICE = Global.getSettings().getCommoditySpec(Commodities.FUEL).getBasePrice();
+    }
+
+    @Override
     public void onGameLoad(boolean newGame) {
+        if(!Global.getSector().getPlayerFleet().hasAbility(ABILITY_ID)) {
+            Global.getSector().getCharacterData().addAbility(ABILITY_ID);
+        }
+
+        LunaSettingsChangedListener.addToManagerIfNeeded();
+
+        readSettings();
+    }
+
+    public static boolean reportCrash(Exception exception) {
         try {
-            if(!Global.getSector().getPlayerFleet().hasAbility(ABILITY_ID)) {
-                Global.getSector().getCharacterData().addAbility(ABILITY_ID);
-            }
+            String stackTrace = "", message = "Fuel Siphoning encountered an error!\nPlease let the mod author know.";
 
-
-            if(!settingsAlreadyRead) {
-                JSONObject cfg = Global.getSettings().getMergedJSONForMod(SETTINGS_PATH, ID);
-
-                FUEL_CONSUMPTION_MULT = (float) Math.max(0, cfg.getDouble("fuelConsumptionMult"));
-                FUEL_PRICE_MULT = (float) cfg.getDouble("fuelPriceMult");
-                SENSOR_PROFILE_INCREASE_PERCENT = (float) cfg.getDouble("sensorProfileIncreasePercent");
-                HIGH_DENSITY_CONVERSION_RATIO = (float) cfg.getDouble("highDensityConversionRatio");
-                LOW_DENSITY_CONVERSION_RATIO = (float) cfg.getDouble("lowDensityConversionRatio");
-
-                settingsAlreadyRead = true;
-            }
-
-            if(FUEL_CONSUMPTION_MULT != 1) {
-                Global.getSector().getPlayerFleet().getStats().getFuelUseHyperMult().modifyMult("sun_fs_fuel_mult", FUEL_CONSUMPTION_MULT);
-            }
-
-            if(FUEL_PRICE_MULT != 1) {
-                CommoditySpecAPI fuelSpec = Global.getSector().getEconomy().getCommoditySpec("fuel");
-                fuelSpec.setBasePrice(Math.max(1, fuelSpec.getBasePrice() * FUEL_PRICE_MULT));
-            }
-        } catch (Exception e) {
-            String stackTrace = "";
-
-            for(int i = 0; i < e.getStackTrace().length; i++) {
-                StackTraceElement ste = e.getStackTrace()[i];
+            for(int i = 0; i < exception.getStackTrace().length; i++) {
+                StackTraceElement ste = exception.getStackTrace()[i];
                 stackTrace += "    " + ste.toString() + System.lineSeparator();
             }
 
-            Global.getLogger(ModPlugin.class).error(e.getMessage() + System.lineSeparator() + stackTrace);
+            Global.getLogger(ModPlugin.class).error(exception.getMessage() + System.lineSeparator() + stackTrace);
+
+            if (Global.getCombatEngine() != null && Global.getCurrentState() == GameState.COMBAT) {
+                Global.getCombatEngine().getCombatUI().addMessage(1, Color.ORANGE, exception.getMessage());
+                Global.getCombatEngine().getCombatUI().addMessage(2, Color.RED, message);
+            } else if (Global.getSector() != null) {
+                CampaignUIAPI ui = Global.getSector().getCampaignUI();
+
+                ui.addMessage(message, Color.RED);
+                ui.addMessage(exception.getMessage(), Color.ORANGE);
+                ui.showConfirmDialog(message + "\n\n" + exception.getMessage(), "Ok", null, null, null);
+
+                if(ui.getCurrentInteractionDialog() != null) ui.getCurrentInteractionDialog().dismiss();
+            } else return false;
+
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 }
