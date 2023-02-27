@@ -14,6 +14,7 @@ import java.util.MissingResourceException;
 
 public class ModPlugin extends BaseModPlugin {
     public static final String ID = "sun_fuel_siphoning";
+    public static final String PREFIX = "sun_fs_";
     public static final String ABILITY_ID = "sun_fs_siphon_fuel";
     public static final String SETTINGS_PATH = "FUEL_SIPHONING_OPTIONS.ini";
 
@@ -21,6 +22,8 @@ public class ModPlugin extends BaseModPlugin {
     static JSONObject settingsCfg = null;
     static <T> T get(String id, Class<T> type) throws Exception {
         if(Global.getSettings().getModManager().isModEnabled(LUNALIB_ID)) {
+            id = PREFIX + id;
+
             if(type == Integer.class) return type.cast(LunaSettings.getInt(ModPlugin.ID, id));
             if(type == Float.class) return type.cast(LunaSettings.getFloat(ModPlugin.ID, id));
             if(type == Boolean.class) return type.cast(LunaSettings.getBoolean(ModPlugin.ID, id));
@@ -94,7 +97,9 @@ public class ModPlugin extends BaseModPlugin {
             Global.getSector().getCharacterData().addAbility(ABILITY_ID);
         }
 
-        LunaSettingsChangedListener.addToManagerIfNeeded();
+        if(Global.getSettings().getModManager().isModEnabled(LUNALIB_ID)) {
+            LunaSettingsChangedListener.addToManagerIfNeeded();
+        }
 
         readSettings();
     }
