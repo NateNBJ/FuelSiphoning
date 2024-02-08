@@ -5,6 +5,7 @@ import com.fs.starfarer.api.GameState;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.CampaignUIAPI;
 import com.fs.starfarer.api.campaign.econ.CommoditySpecAPI;
+import com.fs.starfarer.api.combat.MutableStat;
 import com.fs.starfarer.api.impl.campaign.ids.Commodities;
 import lunalib.lunaSettings.LunaSettings;
 import org.json.JSONObject;
@@ -53,8 +54,12 @@ public class ModPlugin extends BaseModPlugin {
             SENSOR_PROFILE_INCREASE_PERCENT = getFloat("sensorProfileIncreasePercent");
             HIGH_DENSITY_CONVERSION_RATIO = getFloat("highDensityConversionRatio");
             LOW_DENSITY_CONVERSION_RATIO = getFloat("lowDensityConversionRatio");
+            CONVERSION_RATE_MULT = getFloat("conversionRateMult");
 
-            Global.getSector().getPlayerFleet().getStats().getFuelUseHyperMult().modifyMult("sun_fs_fuel_mult", FUEL_CONSUMPTION_MULT);
+            MutableStat fuelConsumption = Global.getSector().getPlayerFleet().getStats().getFuelUseHyperMult();
+
+            fuelConsumption.unmodify("sun_ns_fuel_mult"); // In case it was previously modified by Nomadic Survival
+            fuelConsumption.modifyMult("sun_fs_fuel_mult", FUEL_CONSUMPTION_MULT);
             CommoditySpecAPI fuelSpec = Global.getSector().getEconomy().getCommoditySpec("fuel");
             fuelSpec.setBasePrice(Math.max(1, ORIGINAL_FUEL_PRICE * FUEL_PRICE_MULT));
         } catch (Exception e) {
@@ -74,7 +79,8 @@ public class ModPlugin extends BaseModPlugin {
             FUEL_PRICE_MULT = 1,
             SENSOR_PROFILE_INCREASE_PERCENT = 300,
             HIGH_DENSITY_CONVERSION_RATIO = 1,
-            LOW_DENSITY_CONVERSION_RATIO = 0.75f;
+            LOW_DENSITY_CONVERSION_RATIO = 0.75f,
+            CONVERSION_RATE_MULT = 1.0f;
 
     @Override
     public void afterGameSave() {

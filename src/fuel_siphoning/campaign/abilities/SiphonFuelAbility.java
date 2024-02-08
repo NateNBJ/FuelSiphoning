@@ -1,19 +1,17 @@
 package fuel_siphoning.campaign.abilities;
 
-import java.awt.Color;
-import java.util.EnumSet;
-
-import com.fs.starfarer.api.campaign.*;
-import com.fs.starfarer.api.fleet.FleetMemberViewAPI;
-import fuel_siphoning.ModPlugin;
-
 import com.fs.starfarer.api.Global;
+import com.fs.starfarer.api.campaign.CampaignFleetAPI;
 import com.fs.starfarer.api.campaign.econ.CommoditySpecAPI;
+import com.fs.starfarer.api.fleet.FleetMemberViewAPI;
 import com.fs.starfarer.api.impl.campaign.abilities.BaseToggleAbility;
 import com.fs.starfarer.api.impl.campaign.ids.Commodities;
 import com.fs.starfarer.api.ui.LabelAPI;
 import com.fs.starfarer.api.ui.TooltipMakerAPI;
 import com.fs.starfarer.api.util.Misc;
+import fuel_siphoning.ModPlugin;
+
+import java.awt.*;
 
 public class SiphonFuelAbility extends BaseToggleAbility {
 	public static final Color CONTRAIL_COLOR = new Color(255, 97, 27, 80);
@@ -69,6 +67,8 @@ public class SiphonFuelAbility extends BaseToggleAbility {
                         pad, Misc.getTextColor(), clr, density, fuelPerSupply);
         }
 
+        tooltip.addPara("Fuel is converted faster when your fleet has a high burn level and fuel capacity.", pad);
+
         tooltip.addPara("Increases the range at which the fleet can be detected by %s and consumes supplies in exchange for fuel.",
                         pad, highlight, (int)ModPlugin.SENSOR_PROFILE_INCREASE_PERCENT + "%");
 
@@ -90,8 +90,11 @@ public class SiphonFuelAbility extends BaseToggleAbility {
 
         boolean inNebulaSystem = getFleet().getContainingLocation().isNebula();
         float days = Global.getSector().getClock().convertToDays(amount);
-        float cost = days * fleet.getCargo().getMaxFuel() * (level / getFuelPerSupply(inNebulaSystem))
-                * (fleet.getCurrBurnLevel() / 10);
+        float cost = days
+                * fleet.getCargo().getMaxFuel()
+                * ModPlugin.CONVERSION_RATE_MULT
+                * (level / getFuelPerSupply(inNebulaSystem))
+                * (Math.min(21f, fleet.getCurrBurnLevel() + 1f) / 21f);
         float fuel = fleet.getCargo().getCommodityQuantity(Commodities.FUEL);
 
         if (!hasFuelSource()) {
